@@ -373,6 +373,8 @@ if __name__ == "__main__":
 
     base_dir = osp.join("templates", args.experiment)
     results_dir = osp.join("results", args.experiment)
+    print(f'base_dir: {base_dir}, results_dir: {results_dir}')
+
     ideas = generate_ideas(
         base_dir,
         client=client,
@@ -381,6 +383,9 @@ if __name__ == "__main__":
         max_num_generations=args.num_ideas,
         num_reflections=NUM_REFLECTIONS,
     )
+    print(f'now finished generating ideas, press enter to continue')
+    sys.exit(0)
+
     ideas = check_idea_novelty(
         ideas,
         base_dir=base_dir,

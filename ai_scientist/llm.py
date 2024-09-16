@@ -111,7 +111,8 @@ def get_response_from_llm(
     client,
     model,
     system_message,
-    print_debug=False,
+    # print_debug=False,
+    print_debug=True,
     msg_history=None,
     temperature=0.75,
 ):
@@ -155,6 +156,7 @@ def get_response_from_llm(
         "gpt-4o-2024-08-06",
     ]:
         new_msg_history = msg_history + [{"role": "user", "content": msg}]
+        print(f'will call openai, model: {model}, system_message: {system_message}, new_msg_history: {new_msg_history}')
         response = client.chat.completions.create(
             model=model,
             messages=[

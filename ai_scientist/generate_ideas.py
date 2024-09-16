@@ -81,13 +81,17 @@ def generate_ideas(
     max_num_generations=20,
     num_reflections=5,
 ):
+    print(f'now in generate_ideas, base_dir: {base_dir}, client: {client}, model: {model}, skip_generation: {skip_generation}, max_num_generations: {max_num_generations}, num_reflections: {num_reflections}')
+
     if skip_generation:
         # Load existing ideas from file
+        print(f'Skipping idea generation and using existing ideas.')
         try:
             with open(osp.join(base_dir, "ideas.json"), "r") as f:
                 ideas = json.load(f)
-            print("Loaded existing ideas:")
+            print("Loaded existing ideas from file: {base_dir}/ideas.json finished")
             for idea in ideas:
+                print(f'now got one idea: {idea}')
                 print(idea)
             return ideas
         except FileNotFoundError:
@@ -95,20 +99,21 @@ def generate_ideas(
         except json.JSONDecodeError:
             print("Error decoding existing ideas. Generating new ideas.")
 
-    idea_str_archive = []
+    idea_str_archive = []   # 这个是最终的idea的list，包括了seed ideas，以及后续生成的ideas
     with open(osp.join(base_dir, "seed_ideas.json"), "r") as f:
         seed_ideas = json.load(f)
-        print(f'seed_ideas: {seed_ideas}')
+        print(f'load seed ideas from file: {base_dir}/seed_ideas.json finished')
     for seed_idea in seed_ideas:
+        print(f'got one seed_idea: {seed_idea}')
         idea_str_archive.append(json.dumps(seed_idea))
 
     with open(osp.join(base_dir, "experiment.py"), "r") as f:
         code = f.read()
-        print(f'code: {code}')
+        print(f'load code from file: {base_dir}/experiment.py finished')
 
     with open(osp.join(base_dir, "prompt.json"), "r") as f:
         prompt = json.load(f)
-        print(f'prompt: {prompt}')
+        print(f'load prompt from file: {base_dir}/prompt.json finished')
 
     idea_system_prompt = prompt["system"]
 
@@ -136,7 +141,7 @@ def generate_ideas(
             ## PARSE OUTPUT
             json_output = extract_json_between_markers(text)
             assert json_output is not None, "Failed to extract JSON from LLM output"
-            print(json_output)
+            print(f'idea_first, text: {text}, json_output: {json_output}')
 
             # Iteratively improve task.
             if num_reflections > 1:
@@ -156,9 +161,9 @@ def generate_ideas(
                     assert (
                         json_output is not None
                     ), "Failed to extract JSON from LLM output"
-                    print(json_output)
+                    print(f'idea_reflection, text: {text}, json_output: {json_output}')
 
-                    if "I am done" in text:
+                    if "I am done" in text: # 这个I am done是存在于idea_reflection_prompt模板里的
                         print(f"Idea generation converged after {j + 2} iterations.")
                         break
 
@@ -171,6 +176,7 @@ def generate_ideas(
     ## SAVE IDEAS
     ideas = []
     for idea_str in idea_str_archive:
+        print(f'got a final idea: {idea_str}')
         ideas.append(json.loads(idea_str))
 
     with open(osp.join(base_dir, "ideas.json"), "w") as f:
