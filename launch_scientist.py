@@ -340,9 +340,17 @@ if __name__ == "__main__":
     elif args.model == "gpt-4o-2024-05-13":
         import openai
 
-        print(f"Using OpenAI API with model {args.model}.")
+        api_key = os.getenv('OPENAI_API_KEY_AISCIENTIST')
+        if api_key is None:
+            raise ValueError("OPENAI_API_KEY_AISCIENTIST environment variable not set.")
+
+        base_url = os.getenv('OPENAI_API_BASE_URL_AISCIENTIST')
+        if base_url is None:
+            raise ValueError("OPENAI_API_BASE_URL_AISCIENTIST environment variable not set.")
+
+        print(f"Using OpenAI API with model {args.model}, base_url: {base_url}, api_key: {api_key}")
         client_model = "gpt-4o-2024-05-13"
-        client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY_AISCIENTIST'), base_url=os.getenv('OPENAI_API_BASE_URL_AISCIENTIST'))
+        client = openai.OpenAI(api_key=api_key, base_url=base_url)
     elif args.model == "deepseek-coder-v2-0724":
         import openai
 
