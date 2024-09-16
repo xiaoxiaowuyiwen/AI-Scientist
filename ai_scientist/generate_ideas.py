@@ -2,6 +2,7 @@ import json
 import os
 import os.path as osp
 import time
+import traceback
 from typing import List, Dict, Union
 from ai_scientist.llm import get_response_from_llm, extract_json_between_markers
 
@@ -97,14 +98,17 @@ def generate_ideas(
     idea_str_archive = []
     with open(osp.join(base_dir, "seed_ideas.json"), "r") as f:
         seed_ideas = json.load(f)
+        print(f'seed_ideas: {seed_ideas}')
     for seed_idea in seed_ideas:
         idea_str_archive.append(json.dumps(seed_idea))
 
     with open(osp.join(base_dir, "experiment.py"), "r") as f:
         code = f.read()
+        print(f'code: {code}')
 
     with open(osp.join(base_dir, "prompt.json"), "r") as f:
         prompt = json.load(f)
+        print(f'prompt: {prompt}')
 
     idea_system_prompt = prompt["system"]
 
@@ -113,6 +117,7 @@ def generate_ideas(
         print(f"Generating idea {_ + 1}/{max_num_generations}")
         try:
             prev_ideas_string = "\n\n".join(idea_str_archive)
+            print(f'prev_ideas_string: {prev_ideas_string}')
 
             msg_history = []
             print(f"Iteration 1/{num_reflections}")
@@ -160,6 +165,7 @@ def generate_ideas(
             idea_str_archive.append(json.dumps(json_output))
         except Exception as e:
             print(f"Failed to generate idea: {e}")
+            traceback.print_stack()
             continue
 
     ## SAVE IDEAS
