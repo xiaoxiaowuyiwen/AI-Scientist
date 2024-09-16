@@ -342,7 +342,7 @@ if __name__ == "__main__":
 
         print(f"Using OpenAI API with model {args.model}.")
         client_model = "gpt-4o-2024-05-13"
-        client = openai.OpenAI()
+        client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'), base_url=os.getenv('OPENAI_API_BASE_URL'))
     elif args.model == "deepseek-coder-v2-0724":
         import openai
 
