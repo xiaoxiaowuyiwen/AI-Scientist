@@ -164,8 +164,8 @@ def generate_ideas(
 
             idea_str_archive.append(json.dumps(json_output))
         except Exception as e:
+            traceback.print_exc()
             print(f"Failed to generate idea: {e}")
-            traceback.print_stack()
             continue
 
     ## SAVE IDEAS
