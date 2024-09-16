@@ -111,8 +111,8 @@ def get_response_from_llm(
     client,
     model,
     system_message,
-    # print_debug=False,
-    print_debug=True,
+    print_debug=False,
+    #print_debug=True,
     msg_history=None,
     temperature=0.75,
 ):

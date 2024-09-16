@@ -383,8 +383,7 @@ if __name__ == "__main__":
         max_num_generations=args.num_ideas,
         num_reflections=NUM_REFLECTIONS,
     )
-    print(f'now finished generating ideas, press enter to continue')
-    sys.exit(0)
+    print(f'now finished generating ideas, ideas: {ideas}')
 
     ideas = check_idea_novelty(
         ideas,
@@ -392,6 +391,8 @@ if __name__ == "__main__":
         client=client,
         model=client_model,
     )
+    print(f'now finished checking idea novelty, ideas: {ideas}')
+    sys.exit(0)
 
     with open(osp.join(base_dir, "ideas.json"), "w") as f:
         json.dump(ideas, f, indent=4)

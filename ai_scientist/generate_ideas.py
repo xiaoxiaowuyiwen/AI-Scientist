@@ -74,14 +74,15 @@ ONLY INCLUDE "I am done" IF YOU ARE MAKING NO MORE CHANGES."""
 
 # GENERATE IDEAS
 def generate_ideas(
-    base_dir,
-    client,
-    model,
-    skip_generation=False,
-    max_num_generations=20,
-    num_reflections=5,
+        base_dir,
+        client,
+        model,
+        skip_generation=False,
+        max_num_generations=20,
+        num_reflections=5,
 ):
-    print(f'now in generate_ideas, base_dir: {base_dir}, client: {client}, model: {model}, skip_generation: {skip_generation}, max_num_generations: {max_num_generations}, num_reflections: {num_reflections}')
+    print(
+        f'now in generate_ideas, base_dir: {base_dir}, client: {client}, model: {model}, skip_generation: {skip_generation}, max_num_generations: {max_num_generations}, num_reflections: {num_reflections}')
 
     if skip_generation:
         # Load existing ideas from file
@@ -99,12 +100,12 @@ def generate_ideas(
         except json.JSONDecodeError:
             print("Error decoding existing ideas. Generating new ideas.")
 
-    idea_str_archive = []   # 这个是最终的idea的list，包括了seed ideas，以及后续生成的ideas
+    idea_str_archive = []  # 这个是最终的idea的list，包括了seed ideas，以及后续生成的ideas
     with open(osp.join(base_dir, "seed_ideas.json"), "r") as f:
         seed_ideas = json.load(f)
         print(f'load seed ideas from file: {base_dir}/seed_ideas.json finished')
     for seed_idea in seed_ideas:
-        print(f'got one seed_idea: {seed_idea}')
+        print(f'\tgot one seed_idea: {seed_idea}')
         idea_str_archive.append(json.dumps(seed_idea))
 
     with open(osp.join(base_dir, "experiment.py"), "r") as f:
@@ -159,11 +160,11 @@ def generate_ideas(
                     ## PARSE OUTPUT
                     json_output = extract_json_between_markers(text)
                     assert (
-                        json_output is not None
+                            json_output is not None
                     ), "Failed to extract JSON from LLM output"
                     print(f'idea_reflection, text: {text}, json_output: {json_output}')
 
-                    if "I am done" in text: # 这个I am done是存在于idea_reflection_prompt模板里的
+                    if "I am done" in text:  # 这个I am done是存在于idea_reflection_prompt模板里的
                         print(f"Idea generation converged after {j + 2} iterations.")
                         break
 
@@ -187,12 +188,12 @@ def generate_ideas(
 
 # GENERATE IDEAS OPEN-ENDED
 def generate_next_idea(
-    base_dir,
-    client,
-    model,
-    prev_idea_archive=[],
-    num_reflections=5,
-    max_attempts=10,
+        base_dir,
+        client,
+        model,
+        prev_idea_archive=[],
+        num_reflections=5,
+        max_attempts=10,
 ):
     idea_archive = prev_idea_archive
     original_archive_size = len(idea_archive)
@@ -260,7 +261,7 @@ Scores of 0 indicate the idea failed either during experimentation, writeup or r
                         ## PARSE OUTPUT
                         json_output = extract_json_between_markers(text)
                         assert (
-                            json_output is not None
+                                json_output is not None
                         ), "Failed to extract JSON from LLM output"
                         print(json_output)
 
@@ -290,6 +291,7 @@ def on_backoff(details):
     )
 
 
+'''
 @backoff.on_exception(
     backoff.expo, requests.exceptions.HTTPError, on_backoff=on_backoff
 )
@@ -317,6 +319,34 @@ def search_for_papers(query, result_limit=10) -> Union[None, List[Dict]]:
         return None
 
     papers = results["data"]
+    return papers
+'''
+
+
+@backoff.on_exception(backoff.expo, requests.exceptions.HTTPError, on_backoff=on_backoff)
+def search_for_papers(query, result_limit=10) -> Union[None, List[Dict]]:
+    if not query:
+        return None
+    CORE_API_KEY = os.getenv("CORE_API_KEY")
+    print(f'in search_for_papers, query: {query}, result_limit: {result_limit}, CORE_API_KEY: {CORE_API_KEY}')
+    headers = {"Authorization": f"Bearer {CORE_API_KEY}"}
+    payload = {"q": query, "limit": result_limit}
+    rsp = requests.post(
+        "https://api.core.ac.uk/v3/search/works",
+        data=json.dumps(payload),
+        headers=headers
+    )
+    print(f"Response Status Code: {rsp.status_code}")
+    print(
+        f"Response Content: {rsp.text[:500]}"
+    )  # Print the first 500 characters of the response content
+    rsp.raise_for_status()
+    results = rsp.json()
+
+    total = results["totalHits"]
+    if total == 0:
+        return None
+    papers = results["results"]
     return papers
 
 
@@ -370,14 +400,15 @@ This JSON will be automatically parsed, so ensure the format is precise.'''
 
 
 def check_idea_novelty(
-    ideas,
-    base_dir,
-    client,
-    model,
-    max_num_iterations=10,
+        ideas,
+        base_dir,
+        client,
+        model,
+        max_num_iterations=10,
 ):
     with open(osp.join(base_dir, "experiment.py"), "r") as f:
         code = f.read()
+
     with open(osp.join(base_dir, "prompt.json"), "r") as f:
         prompt = json.load(f)
         task_description = prompt["task_description"]
@@ -449,6 +480,7 @@ def check_idea_novelty(
                 continue
 
         idea["novel"] = novel
+        print(f'idea {idx}, novel: {novel}')
 
     # Save results to JSON file
     results_file = osp.join(base_dir, "ideas.json")
