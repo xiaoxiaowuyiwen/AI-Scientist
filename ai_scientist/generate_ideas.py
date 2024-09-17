@@ -61,7 +61,7 @@ Here are the ideas that you have already generated:
 {prev_ideas_string}
 '''
 
-Come up with the next impactful and creative idea for research experiments and directions you can feasibly investigate with the code provided.
+Come up with the next impactful and creative idea for research experiments and directions.
 Note that you will not have access to any additional resources or datasets.
 Make sure any idea is not overfit the specific training dataset or model, and has wider significance.
 
