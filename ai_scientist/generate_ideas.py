@@ -553,13 +553,18 @@ def check_idea_novelty(
                             i=i,
                             title=paper["title"],
                             authors=paper["authors"],
-                            venue=paper["venue"],
-                            year=paper["year"],
-                            cites=paper["citationCount"],
-                            abstract=paper["abstract"],
+                            # venue=paper["venue"],
+                            venue=paper.get("venue", "Unknown"),
+                            # year=paper["year"],
+                            year=paper.get("year", "Unknown"),
+                            # cites=paper["citationCount"],
+                            cites=paper.get("citationCount", "Unknown"),
+                            # abstract=paper["abstract"],
+                            abstract=paper.get("abstract", "Unknown"),
                         )
                     )
                 papers_str = "\n\n".join(paper_strings)
+                print(f'now papers_str: {papers_str}')
 
             except Exception as e:
                 traceback.print_exc()

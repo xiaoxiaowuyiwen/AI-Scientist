@@ -391,13 +391,13 @@ if __name__ == "__main__":
         model=client_model,
     )
     print(f'now finished checking idea novelty, ideas: {ideas}')
-    sys.exit(0)
 
     with open(osp.join(base_dir, "ideas.json"), "w") as f:
         json.dump(ideas, f, indent=4)
 
     novel_ideas = [idea for idea in ideas if idea["novel"]]
     # novel_ideas = list(reversed(novel_ideas))
+    sys.exit(0)
 
     if args.parallel > 0:
         print(f"Running {args.parallel} parallel processes")
