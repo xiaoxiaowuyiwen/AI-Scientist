@@ -1,21 +1,20 @@
-import openai
+import argparse
+import json
+import os
 import os.path as osp
 import shutil
-import json
-import argparse
-import multiprocessing
-import torch
-import os
-import time
 import sys
-from aider.coders import Coder
-from aider.models import Model
-from aider.io import InputOutput
 from datetime import datetime
+
+import torch
+from aider.coders import Coder
+from aider.io import InputOutput
+from aider.models import Model
+
 from ai_scientist.generate_ideas import generate_ideas, check_idea_novelty
 from ai_scientist.perform_experiments import perform_experiments
-from ai_scientist.perform_writeup import perform_writeup, generate_latex
 from ai_scientist.perform_review import perform_review, load_paper, perform_improvement
+from ai_scientist.perform_writeup import perform_writeup, generate_latex
 
 NUM_REFLECTIONS = 3
 
@@ -105,15 +104,15 @@ def get_available_gpus(gpu_ids=None):
 
 
 def worker(
-    queue,
-    base_dir,
-    results_dir,
-    model,
-    client,
-    client_model,
-    writeup,
-    improvement,
-    gpu_id,
+        queue,
+        base_dir,
+        results_dir,
+        model,
+        client,
+        client_model,
+        writeup,
+        improvement,
+        gpu_id,
 ):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     print(f"Worker {gpu_id} started.")
@@ -137,15 +136,15 @@ def worker(
 
 
 def do_idea(
-    base_dir,
-    results_dir,
-    idea,
-    model,
-    client,
-    client_model,
-    writeup,
-    improvement,
-    log_file=False,
+        base_dir,
+        results_dir,
+        idea,
+        model,
+        client,
+        client_model,
+        writeup,
+        improvement,
+        log_file=False,
 ):
     ## CREATE PROJECT FOLDER
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -384,7 +383,6 @@ if __name__ == "__main__":
         num_reflections=NUM_REFLECTIONS,
     )
     print(f'now finished generating ideas, ideas: {ideas}')
-    sys.exit(0)
 
     ideas = check_idea_novelty(
         ideas,
