@@ -476,7 +476,8 @@ def check_idea_novelty(
                 papers_str = "\n\n".join(paper_strings)
 
             except Exception as e:
-                print(f"Error: {e}")
+                traceback.print_exc()
+                print(f"line 480 Error: {e}")
                 continue
 
         idea["novel"] = novel

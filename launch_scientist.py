@@ -384,6 +384,7 @@ if __name__ == "__main__":
         num_reflections=NUM_REFLECTIONS,
     )
     print(f'now finished generating ideas, ideas: {ideas}')
+    sys.exit(0)
 
     ideas = check_idea_novelty(
         ideas,
