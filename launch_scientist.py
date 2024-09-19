@@ -1,11 +1,10 @@
 import argparse
 import json
-import multiprocessing
 import os
 import os.path as osp
 import shutil
 import sys
-import time
+import uuid
 from datetime import datetime
 
 import torch
@@ -13,7 +12,8 @@ from aider.coders import Coder
 from aider.io import InputOutput
 from aider.models import Model
 
-from ai_scientist.generate_ideas import generate_ideas, check_idea_novelty
+from ai_scientist.generate_ideas import generate_ideas
+from ai_scientist.logger import debug_logger
 from ai_scientist.perform_experiments import perform_experiments
 from ai_scientist.perform_review import perform_review, load_paper, perform_improvement
 from ai_scientist.perform_writeup import perform_writeup, generate_latex
@@ -324,13 +324,10 @@ if __name__ == "__main__":
         )
         args.parallel = len(available_gpus)
 
-    print(f"Using GPUs: {available_gpus}")
-
     # Create client
     if args.model == "claude-3-5-sonnet-20240620":
         import anthropic
 
-        print(f"Using Anthropic API with model {args.model}.")
         client_model = "claude-3-5-sonnet-20240620"
         client = anthropic.Anthropic()
     elif args.model.startswith("bedrock") and "claude" in args.model:
@@ -339,7 +336,6 @@ if __name__ == "__main__":
         # Expects: bedrock/<MODEL_ID>
         client_model = args.model.split("/")[-1]
 
-        print(f"Using Amazon Bedrock with model {client_model}.")
         client = anthropic.AnthropicBedrock(
             aws_access_key=os.getenv("AWS_ACCESS_KEY_ID"),
             aws_secret_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
@@ -351,7 +347,6 @@ if __name__ == "__main__":
         # Expects: vertex_ai/<MODEL_ID>
         client_model = args.model.split("/")[-1]
 
-        print(f"Using Vertex AI with model {client_model}.")
         client = anthropic.AnthropicVertex()
     elif args.model == "gpt-4o-2024-05-13":
         import openai
@@ -364,13 +359,11 @@ if __name__ == "__main__":
         if base_url is None:
             raise ValueError("OPENAI_API_BASE_URL_AISCIENTIST environment variable not set.")
 
-        print(f"Using OpenAI API with model {args.model}, base_url: {base_url}, api_key: {api_key}")
         client_model = "gpt-4o-2024-05-13"
         client = openai.OpenAI(api_key=api_key, base_url=base_url)
     elif args.model == "deepseek-coder-v2-0724":
         import openai
 
-        print(f"Using OpenAI API with {args.model}.")
         client_model = "deepseek-coder-v2-0724"
         client = openai.OpenAI(
             api_key=os.environ["DEEPSEEK_API_KEY"], base_url="https://api.deepseek.com"
@@ -378,7 +371,6 @@ if __name__ == "__main__":
     elif args.model == "llama3.1-405b":
         import openai
 
-        print(f"Using OpenAI API with {args.model}.")
         client_model = "meta-llama/llama-3.1-405b-instruct"
         client = openai.OpenAI(
             api_key=os.environ["OPENROUTER_API_KEY"],
@@ -389,8 +381,15 @@ if __name__ == "__main__":
 
     base_dir = osp.join("templates", args.experiment)
     results_dir = osp.join("results", args.experiment)
-    print(f'base_dir: {base_dir}, results_dir: {results_dir}')
 
+    log_id = uuid.uuid4().hex
+    # 将log_id设置为环境变量，以便在其他地方使用
+    # os.environ["LOG_ID"] = log_id
+
+    print(
+        f"Using GPUs: {available_gpus}, parallel processes: {args.parallel}, base_dir: {base_dir}, results_dir: {results_dir}, log_id: {log_id}")
+
+    debug_logger.info(f'log_id: {log_id}, will start generating ideas')
     ideas = generate_ideas(
         base_dir,
         client=client,
@@ -398,9 +397,12 @@ if __name__ == "__main__":
         skip_generation=args.skip_idea_generation,
         max_num_generations=args.num_ideas,
         num_reflections=NUM_REFLECTIONS,
+        log_id=log_id,
     )
-    print(f'now finished generating ideas, ideas: {ideas}')
+    debug_logger.info(f'log_id: {log_id}, finished generating ideas, ideas: {ideas}')
+    sys.exit(0)
 
+    debug_logger.info(f'log_id: {log_id}, will start checking idea novelty')
     ideas = check_idea_novelty(
         ideas,
         base_dir=base_dir,

@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import os.path as osp
@@ -9,8 +10,32 @@ import backoff
 import requests
 
 from ai_scientist.llm import get_response_from_llm, extract_json_between_markers
+from ai_scientist.logger import debug_logger
 
 S2_API_KEY = os.getenv("S2_API_KEY")
+
+# todo: 这里的area和idea是需要从外部传入的，这里只是一个示例
+area = "computer science"
+idea = "Use Gen AI to improve the accuracy of recognition models, that is, Gen AI is model A, attack recognition " \
+       "model B, so that model B recognition is more accurate. How to deal with Gen AI attacks is to improve " \
+       "recognition accuracy, not attack accuracy, which contributes to urban safety."
+
+# 根据area和idea生成一个seed idea
+paper_seed_idea_prompt = """
+You are a senior doctor in {area}, especially familiar with AI and machine learning. Now I am studying a 
+field whose core idea is: "{idea}", Now I need to write a paper based on this idea, but I don't know how to determine 
+the topic and description of the paper, as well as the experimental requirements. Please generate such content for me. 
+The number of experimental requirements should not exceed 3, and the whole needs to include 3 parts: topic, description,
+ and experimental requirements. Please use json format for output, similar to:
+```json
+{
+"Name": "Topic of the paper",
+"Title": Full name of the paper,
+"Experiment": "Experimental requirements"
+}
+```
+Please note that only json needs to be output, and no other content needs to be output.
+"""  # .format(area="computer science", idea="")
 
 idea_first_prompt_bak = """{task_description}
 <experiment.py>
@@ -117,59 +142,65 @@ def generate_ideas(
         client,
         model,
         skip_generation=False,
-        max_num_generations=20,
+        max_num_generations=20,  # 生成的idea的数量
         num_reflections=5,
+        log_id=None,
 ):
-    print(
-        f'now in generate_ideas, base_dir: {base_dir}, client: {client}, model: {model}, skip_generation: {skip_generation}, max_num_generations: {max_num_generations}, num_reflections: {num_reflections}')
+    debug_logger.info(
+        f'log_id: {log_id}, now in generate_ideas, base_dir: {base_dir}, client: {client}, model: {model}, skip_generation: {skip_generation}, max_num_generations: {max_num_generations}, num_reflections: {num_reflections}')
 
-    if skip_generation:
+    if skip_generation:  # 如果跳过idea的生成，则直接从文件中读取已有的ideas
         # Load existing ideas from file
-        print(f'Skipping idea generation and using existing ideas.')
+        debug_logger.info(f'log_id: {log_id}, Skipping idea generation and using existing ideas.')
         try:
             with open(osp.join(base_dir, "ideas.json"), "r") as f:
                 ideas = json.load(f)
-            print("Loaded existing ideas from file: {base_dir}/ideas.json finished")
+            debug_logger.info(f"log_id: {log_id}, Loaded existing ideas from file: {base_dir}/ideas.json finished")
             for idea in ideas:
-                print(f'now got one idea: {idea}')
-                print(idea)
+                debug_logger.info(f'log_id: {log_id}, now got one idea: {idea}')
+                debug_logger.info(idea)
             return ideas
         except FileNotFoundError:
-            print("No existing ideas found. Generating new ideas.")
+            debug_logger.info(f"log_id: {log_id}, No existing ideas found. Generating new ideas.")
         except json.JSONDecodeError:
-            print("Error decoding existing ideas. Generating new ideas.")
+            debug_logger.info(f"log_id: {log_id}, Error decoding existing ideas. Generating new ideas.")
 
     idea_str_archive = []  # 这个是最终的idea的list，包括了seed ideas，以及后续生成的ideas
+
+    # 读取seed ideas
     with open(osp.join(base_dir, "seed_ideas.json"), "r") as f:
         seed_ideas = json.load(f)
-        print(f'load seed ideas from file: {base_dir}/seed_ideas.json finished')
+        debug_logger.info(f'log_id: {log_id}, load seed ideas from file: {base_dir}/seed_ideas.json finished')
+
+    # 将seed ideas转换为json字符串，加入到idea_str_archive中
     for seed_idea in seed_ideas:
-        print(f'\tgot one seed_idea: {seed_idea}')
+        debug_logger.info(f'log_id: {log_id}, \tgot one seed_idea: {seed_idea}')
         idea_str_archive.append(json.dumps(seed_idea))
 
+    # 读取experiment.py
     with open(osp.join(base_dir, "experiment.py"), "r") as f:
         code = f.read()
-        print(f'load code from file: {base_dir}/experiment.py finished')
+        debug_logger.info(f'log_id: {log_id}, load code from file: {base_dir}/experiment.py finished')
 
+    # 读取prompt.json
     with open(osp.join(base_dir, "prompt.json"), "r") as f:
         prompt = json.load(f)
-        print(f'load prompt from file: {base_dir}/prompt.json finished')
+        debug_logger.info(f'log_id: {log_id}, load prompt from file: {base_dir}/prompt.json finished')
 
     idea_system_prompt = prompt["system"]
 
-    for _ in range(max_num_generations):
-        print()
-        print(f"Generating idea {_ + 1}/{max_num_generations}")
+    for _ in range(max_num_generations):  # 迭代max_num_generations次，相当于生成max_num_generations个新idea
+        debug_logger.info(f"log_id: {log_id}, Generating idea {_ + 1}/{max_num_generations}")
         try:
             prev_ideas_string = "\n\n".join(idea_str_archive)
-            print(f'prev_ideas_string: {prev_ideas_string}')
+            debug_logger.info(f'log_id: {log_id}, prev_ideas_string: {prev_ideas_string}')
 
             msg_history = []
-            print(f"Iteration 1/{num_reflections}")
+            debug_logger.info(f"log_id: {log_id}, Iteration 1/{num_reflections}")
             text, msg_history = get_response_from_llm(
                 idea_first_prompt.format(
-                    # task_description=prompt["task_description"],
-                    task_description=idea_system_prompt,  # 原始的description与llm强相关，此处先直接用system message代替
+                    task_description=prompt["task_description"],
+                    # task_description=idea_system_prompt,  # 原始的description与llm强相关，此处先直接用system message代替
                     code=code,
                     prev_ideas_string=prev_ideas_string,
                     num_reflections=num_reflections,
@@ -182,12 +213,12 @@ def generate_ideas(
             ## PARSE OUTPUT
             json_output = extract_json_between_markers(text)
             assert json_output is not None, "Failed to extract JSON from LLM output"
-            print(f'idea_first, text: {text}, json_output: {json_output}')
+            debug_logger.info(f'log_id: {log_id}, idea_first, text: {text}, json_output: {json_output}')
 
             # Iteratively improve task.
-            if num_reflections > 1:
+            if num_reflections > 1:  # 如果num_reflections大于1，则进行迭代
                 for j in range(num_reflections - 1):
-                    print(f"Iteration {j + 2}/{num_reflections}")
+                    debug_logger.info(f"log_id: {log_id}, Iteration {j + 2}/{num_reflections}")
                     text, msg_history = get_response_from_llm(
                         idea_reflection_prompt.format(
                             current_round=j + 2, num_reflections=num_reflections
@@ -198,28 +229,25 @@ def generate_ideas(
                         msg_history=msg_history,
                     )
                     ## PARSE OUTPUT
-                    json_output = extract_json_between_markers(text)
-                    assert (
-                            json_output is not None
-                    ), "Failed to extract JSON from LLM output"
-                    print(f'idea_reflection, text: {text}, json_output: {json_output}')
+                    json_output = extract_json_between_markers(text)  # 获取迭代后的idea，这个会覆盖上面的json_output
+                    assert (json_output is not None), "Failed to extract JSON from LLM output"
+                    debug_logger.info(f'log_id: {log_id}, idea_reflection, text: {text}, json_output: {json_output}')
 
                     if "I am done" in text:  # 这个I am done是存在于idea_reflection_prompt模板里的
-                        print(f"Idea generation converged after {j + 2} iterations.")
+                        debug_logger.info(f"log_id: {log_id}, Idea generation converged after {j + 2} iterations.")
                         break
 
             idea_str_archive.append(json.dumps(json_output))
         except Exception as e:
             traceback.print_exc()
-            print(f"Failed to generate idea: {e}")
+            debug_logger.info(f"log_id: {log_id}, Failed to generate idea: {e}")
             continue
 
     ## SAVE IDEAS
     ideas = []
     for idea_str in idea_str_archive:
-        print(f'got a final idea: {idea_str}')
+        debug_logger.info(f'log_id: {log_id}, got a final idea: {idea_str}')
         ideas.append(json.loads(idea_str))
-
     with open(osp.join(base_dir, "ideas.json"), "w") as f:
         json.dump(ideas, f, indent=4)
 
@@ -586,7 +614,6 @@ def check_idea_novelty(
 if __name__ == "__main__":
     MAX_NUM_GENERATIONS = 32
     NUM_REFLECTIONS = 5
-    import argparse
 
     parser = argparse.ArgumentParser(description="Generate AI scientist ideas")
     # add type of experiment (nanoGPT, Boston, etc.)
