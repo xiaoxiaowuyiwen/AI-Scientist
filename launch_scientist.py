@@ -1,9 +1,11 @@
 import argparse
 import json
+import multiprocessing
 import os
 import os.path as osp
 import shutil
 import sys
+import time
 from datetime import datetime
 
 import torch
@@ -148,23 +150,32 @@ def do_idea(
 ):
     ## CREATE PROJECT FOLDER
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
     idea_name = f"{timestamp}_{idea['Name']}"
     folder_name = osp.join(results_dir, idea_name)
+    print(f'do_idea, idea_name: {idea_name}, folder_name: {folder_name}')
     assert not osp.exists(folder_name), f"Folder {folder_name} already exists."
     destination_dir = folder_name
     shutil.copytree(base_dir, destination_dir, dirs_exist_ok=True)
+
     with open(osp.join(base_dir, "run_0", "final_info.json"), "r") as f:
         baseline_results = json.load(f)
     baseline_results = {k: v["means"] for k, v in baseline_results.items()}
+    print(f'do_idea, idea_name: {idea_name}, baseline_results: {baseline_results}')
+
     exp_file = osp.join(folder_name, "experiment.py")
     vis_file = osp.join(folder_name, "plot.py")
     notes = osp.join(folder_name, "notes.txt")
+    print(f'do_idea, idea_name: {idea_name}, exp_file: {exp_file}, vis_file: {vis_file}, notes: {notes}')
+
+    # 向notes.txt中写入实验的标题和描述
     with open(notes, "w") as f:
         f.write(f"# Title: {idea['Title']}\n")
         f.write(f"# Experiment description: {idea['Experiment']}\n")
         f.write(f"## Run 0: Baseline\n")
         f.write(f"Results: {baseline_results}\n")
         f.write(f"Description: Baseline results.\n")
+
     if log_file:
         original_stdout = sys.stdout
         original_stderr = sys.stderr
@@ -172,11 +183,13 @@ def do_idea(
         log = open(log_path, "a")
         sys.stdout = log
         sys.stderr = log
+
     try:
         print_time()
         print(f"*Starting idea: {idea_name}*")
-        ## PERFORM EXPERIMENTS
-        fnames = [exp_file, vis_file, notes]
+
+        ## 1. PERFORM EXPERIMENTS
+        fnames = [exp_file, vis_file, notes]  # 分别是experiment.py, plot.py, notes.txt
         io = InputOutput(
             yes=True, chat_history_file=f"{folder_name}/{idea_name}_aider.txt"
         )
@@ -194,7 +207,6 @@ def do_idea(
             use_git=False,
             edit_format="diff",
         )
-
         print_time()
         print(f"*Starting Experiments*")
         try:
@@ -210,10 +222,10 @@ def do_idea(
 
         print_time()
         print(f"*Starting Writeup*")
-        ## PERFORM WRITEUP
+        ## 2. PERFORM WRITEUP
         if writeup == "latex":
             writeup_file = osp.join(folder_name, "latex", "template.tex")
-            fnames = [exp_file, writeup_file, notes]
+            fnames = [exp_file, writeup_file, notes]  # 分别是experiment.py, template.tex, notes.txt
             if model == "deepseek-coder-v2-0724":
                 main_model = Model("deepseek/deepseek-coder")
             elif model == "llama3.1-405b":
@@ -239,17 +251,21 @@ def do_idea(
 
         print_time()
         print(f"*Starting Review*")
-        ## REVIEW PAPER
+        ## 3. REVIEW PAPER
         if writeup == "latex":
             try:
                 paper_text = load_paper(f"{folder_name}/{idea['Name']}.pdf")
                 review = perform_review(
                     paper_text,
-                    model="gpt-4o-2024-05-13",
-                    client=openai.OpenAI(),
-                    num_reflections=5,
+                    # model="gpt-4o-2024-05-13",
+                    model=model,
+                    # client=openai.OpenAI(), # 这里怎么写死了？S
+                    client=client,
+                    # num_reflections=5,
+                    num_reflections=1,
                     num_fs_examples=1,
-                    num_reviews_ensemble=5,
+                    # num_reviews_ensemble=5,  # 评审人数
+                    num_reviews_ensemble=1,  # 评审人数
                     temperature=0.1,
                 )
                 # Store the review in separate review.txt file
@@ -259,7 +275,7 @@ def do_idea(
                 print(f"Failed to perform review: {e}")
                 return False
 
-        ## IMPROVE WRITEUP
+        ## 4. IMPROVE WRITEUP
         if writeup == "latex" and improvement:
             print_time()
             print(f"*Starting Improvement*")
@@ -269,6 +285,7 @@ def do_idea(
                     coder, folder_name, f"{folder_name}/{idea['Name']}_improved.pdf"
                 )
                 paper_text = load_paper(f"{folder_name}/{idea['Name']}_improved.pdf")
+                # 为什么又review了一次？
                 review = perform_review(
                     paper_text,
                     model="gpt-4o-2024-05-13",
@@ -389,6 +406,7 @@ if __name__ == "__main__":
         base_dir=base_dir,
         client=client,
         model=client_model,
+        max_num_iterations=3,  # 为了节省时间，这里暂时设置为3
     )
     print(f'now finished checking idea novelty, ideas: {ideas}')
 
@@ -397,7 +415,6 @@ if __name__ == "__main__":
 
     novel_ideas = [idea for idea in ideas if idea["novel"]]
     # novel_ideas = list(reversed(novel_ideas))
-    sys.exit(0)
 
     if args.parallel > 0:
         print(f"Running {args.parallel} parallel processes")

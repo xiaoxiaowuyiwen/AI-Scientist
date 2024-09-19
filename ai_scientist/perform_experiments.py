@@ -1,9 +1,9 @@
-import shutil
-import os.path as osp
-import subprocess
-from subprocess import TimeoutExpired
-import sys
 import json
+import os.path as osp
+import shutil
+import subprocess
+import sys
+from subprocess import TimeoutExpired
 
 MAX_ITERS = 4
 MAX_RUNS = 5
@@ -124,23 +124,28 @@ def perform_experiments(idea, folder_name, coder, baseline_results) -> bool:
         baseline_results=baseline_results,
     )
     while run < MAX_RUNS + 1:
-        if current_iter >= MAX_ITERS:
+        if current_iter >= MAX_ITERS:  # 退出条件1：超过最大迭代次数
             print("Max iterations reached")
             break
         coder_out = coder.run(next_prompt)
-        print(coder_out)
-        if "ALL_COMPLETED" in coder_out:
+        print(f'in perform_experiments, run: {run}, coder_out: {coder_out}')
+        # print(coder_out)
+        if "ALL_COMPLETED" in coder_out:  # 退出条件2：所有实验完成
             break
         return_code, next_prompt = run_experiment(folder_name, run)
         if return_code == 0:
             run += 1
             current_iter = 0
         current_iter += 1
-    if current_iter >= MAX_ITERS:
+
+    if current_iter >= MAX_ITERS:  # 不是所有实验都完成，直接返回False
         print("Not all experiments completed.")
         return False
 
     current_iter = 0
+
+    # 画图
+    print(f'now will modify plot.py and run_plotting')
     next_prompt = """
 Great job! Please modify `plot.py` to generate the most relevant plots for the final writeup. 
 
@@ -156,6 +161,9 @@ We will be running the command `python plot.py` to generate the plots.
         current_iter += 1
         if return_code == 0 or current_iter >= MAX_ITERS:
             break
+
+    # 修改notes.txt
+    print(f'now will modify notes.txt')
     next_prompt = """
 Please modify `notes.txt` with a description of what each plot shows along with the filename of the figure. Please do so in-depth.
 

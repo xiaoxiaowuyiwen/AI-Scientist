@@ -485,6 +485,7 @@ A query will work best if you are able to recall the exact name of the paper you
 This JSON will be automatically parsed, so ensure the format is precise.'''
 
 
+# 这个check_idea_novelty函数是用来检查idea是否novel的，但是并没有修改idea的任何基本信息，只是增加了novel字段
 def check_idea_novelty(
         ideas,
         base_dir,
@@ -549,7 +550,8 @@ def check_idea_novelty(
                 paper_strings = []
                 for i, paper in enumerate(papers):
                     paper_strings.append(
-                        """{i}: {title}. {authors}. {venue}, {year}.\nNumber of citations: {cites}\nAbstract: {abstract}""".format(
+                        # """{i}: {title}. {authors}. {venue}, {year}.\nNumber of citations: {cites}\nAbstract: {abstract}""".format(
+                        """{i}: \nTitle: {title}\nAuthors: {authors}\nVenue: {venue}\nYear: {year}.\nNumber of citations: {cites}\nAbstract: {abstract}""".format(
                             i=i,
                             title=paper["title"],
                             authors=paper["authors"],
@@ -565,7 +567,6 @@ def check_idea_novelty(
                     )
                 papers_str = "\n\n".join(paper_strings)
                 print(f'now papers_str: {papers_str}')
-
             except Exception as e:
                 traceback.print_exc()
                 print(f"line 480 Error: {e}")
