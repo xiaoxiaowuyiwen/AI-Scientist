@@ -418,7 +418,8 @@ if __name__ == "__main__":
 
     debug_logger.info(f'log_id: {log_id}, now finished checking idea novelty, ideas: {ideas}')
 
-    novel_ideas = [idea for idea in ideas if idea["novel"]]
+    # novel_ideas = [idea for idea in ideas if idea["novel"]]
+    novel_ideas = ideas  # 暂时不过滤novelty
     # novel_ideas = list(reversed(novel_ideas))
 
     if args.parallel > 0:
