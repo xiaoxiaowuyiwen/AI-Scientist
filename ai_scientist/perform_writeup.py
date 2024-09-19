@@ -8,6 +8,7 @@ from typing import Optional, Tuple
 
 from ai_scientist.generate_ideas import search_for_papers
 from ai_scientist.llm import get_response_from_llm, extract_json_between_markers
+from ai_scientist.logger import debug_logger
 
 per_section_tips = {
     "Abstract": """
@@ -191,13 +192,13 @@ def generate_latex(coder, folder_name, pdf_file, timeout=30, num_error_correctio
         re.DOTALL,
     )
     if references_bib is None:
-        print("No references.bib found in template.tex")
+        debug_logger.info("No references.bib found in template.tex")
         return
     bib_text = references_bib.group(1)
     cites = [cite.strip() for item in cites for cite in item.split(",")]
     for cite in cites:
         if cite not in bib_text:
-            print(f"Reference {cite} not found in references.")
+            debug_logger.info(f"Reference {cite} not found in references.")
             prompt = f"""Reference {cite} not found in references.bib. Is this included under a different name?
 If so, please modify the citation in template.tex to match the name in references.bib at the top. Otherwise, remove the cite."""
             coder.run(prompt)
@@ -209,7 +210,7 @@ If so, please modify the citation in template.tex to match the name in reference
     all_figs = [f for f in os.listdir(folder) if f.endswith(".png")]
     for figure in referenced_figs:
         if figure not in all_figs:
-            print(f"Figure {figure} not found in directory.")
+            debug_logger.info(f"Figure {figure} not found in directory.")
             prompt = f"""The image {figure} not found in the directory. The images in the directory are: {all_figs}.
 Please ensure that the figure is in the directory and that the filename is correct. Check the notes to see what each figure contains."""
             coder.run(prompt)
@@ -221,7 +222,7 @@ Please ensure that the figure is in the directory and that the filename is corre
     duplicates = {x for x in referenced_figs if referenced_figs.count(x) > 1}
     if duplicates:
         for dup in duplicates:
-            print(f"Duplicate figure found: {dup}.")
+            debug_logger.info(f"Duplicate figure found: {dup}.")
             prompt = f"""Duplicate figures found: {dup}. Ensure any figure is only included once.
 If duplicated, identify the best location for the figure and remove any other."""
             coder.run(prompt)
@@ -233,7 +234,7 @@ If duplicated, identify the best location for the figure and remove any other.""
     duplicates = {x for x in sections if sections.count(x) > 1}
     if duplicates:
         for dup in duplicates:
-            print(f"Duplicate section header found: {dup}")
+            debug_logger.info(f"Duplicate section header found: {dup}")
             prompt = f"""Duplicate section header found: {dup}. Ensure any section header is declared once.
 If duplicated, identify the best location for the section header and remove any other."""
             coder.run(prompt)
@@ -256,7 +257,7 @@ Pay attention to any accidental uses of HTML syntax, e.g. </end instead of \\end
 
 
 def compile_latex(cwd, pdf_file, timeout=30):
-    print("GENERATING LATEX")
+    debug_logger.info("GENERATING LATEX")
 
     commands = [
         ["pdflatex", "-interaction=nonstopmode", "template.tex"],
@@ -275,20 +276,20 @@ def compile_latex(cwd, pdf_file, timeout=30):
                 text=True,
                 timeout=timeout,
             )
-            print("Standard Output:\n", result.stdout)
-            print("Standard Error:\n", result.stderr)
+            debug_logger.info("Standard Output:\n", result.stdout)
+            debug_logger.info("Standard Error:\n", result.stderr)
         except subprocess.TimeoutExpired:
-            print(f"Latex timed out after {timeout} seconds")
+            debug_logger.info(f"Latex timed out after {timeout} seconds")
         except subprocess.CalledProcessError as e:
-            print(f"Error running command {' '.join(command)}: {e}")
+            debug_logger.info(f"Error running command {' '.join(command)}: {e}")
 
-    print("FINISHED GENERATING LATEX")
+    debug_logger.info("FINISHED GENERATING LATEX")
 
     # Attempt to move the PDF to the desired location
     try:
         shutil.move(osp.join(cwd, "template.pdf"), pdf_file)
     except FileNotFoundError:
-        print("Failed to rename PDF.")
+        debug_logger.info("Failed to rename PDF.")
 
 
 def get_citation_aider_prompt(
@@ -396,7 +397,8 @@ Ensure the citation is well-integrated into the text.'''
 
 
 # PERFORM WRITEUP
-def perform_writeup(idea, folder_name, coder, cite_client, cite_model, num_cite_rounds=20):
+# def perform_writeup(idea, folder_name, coder, cite_client, cite_model, num_cite_rounds=20):
+def perform_writeup(idea, folder_name, coder, cite_client, cite_model, num_cite_rounds=5):
     # CURRENTLY ASSUMES LATEX
     abstract_prompt = f"""We've provided the `latex/template.tex` file to the project. We will be filling it in section by section.
 

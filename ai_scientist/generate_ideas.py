@@ -174,7 +174,7 @@ def generate_ideas(
 
     # 将seed ideas转换为json字符串，加入到idea_str_archive中
     for seed_idea in seed_ideas:
-        debug_logger.info(f'log_id: {log_id}, \tgot one seed_idea: {seed_idea}')
+        debug_logger.info(f'log_id: {log_id}, got one seed_idea: {seed_idea}')
         idea_str_archive.append(json.dumps(seed_idea))
 
     # 读取experiment.py
@@ -397,7 +397,8 @@ def search_for_papers(query, result_limit=10) -> Union[None, List[Dict]]:
     if not query:
         return None
     CORE_API_KEY = os.getenv("CORE_API_KEY")
-    print(f'in search_for_papers, query: {query}, result_limit: {result_limit}, CORE_API_KEY: {CORE_API_KEY}')
+    debug_logger.info(
+        f'in search_for_papers, query: {query}, result_limit: {result_limit}, CORE_API_KEY: {CORE_API_KEY}')
     headers = {"Authorization": f"Bearer {CORE_API_KEY}"}
     payload = {"q": query, "limit": result_limit}
     rsp = requests.post(
@@ -405,10 +406,8 @@ def search_for_papers(query, result_limit=10) -> Union[None, List[Dict]]:
         data=json.dumps(payload),
         headers=headers
     )
-    print(f"Response Status Code: {rsp.status_code}")
-    print(
-        f"Response Content: {rsp.text[:500]}"
-    )  # Print the first 500 characters of the response content
+    debug_logger.info(f"Response Status Code: {rsp.status_code}")
+    debug_logger.info(f"Response Content: {rsp.text[:500]}")  # Print the first 500 characters of the response content
     rsp.raise_for_status()
     results = rsp.json()
 
@@ -520,6 +519,7 @@ def check_idea_novelty(
         client,
         model,
         max_num_iterations=10,
+        log_id=None,
 ):
     with open(osp.join(base_dir, "experiment.py"), "r") as f:
         code = f.read()
@@ -530,10 +530,10 @@ def check_idea_novelty(
 
     for idx, idea in enumerate(ideas):
         if "novel" in idea:
-            print(f"Skipping idea {idx}, already checked.")
+            debug_logger.info(f"log_id: {log_id}, Skipping idea {idx}, already checked.")
             continue
 
-        print(f"\nChecking novelty of idea {idx}: {idea['Name']}")
+        debug_logger.info(f"log_id: {log_id}, Checking novelty of idea {idx}: {idea['Name']}")
 
         novel = False
         msg_history = []
@@ -558,11 +558,11 @@ def check_idea_novelty(
                     msg_history=msg_history,
                 )
                 if "decision made: novel" in text.lower():
-                    print("Decision made: novel after round", j)
+                    debug_logger.info(f"log_id: {log_id}, Decision made: novel after round", j)
                     novel = True
                     break
                 if "decision made: not novel" in text.lower():
-                    print("Decision made: not novel after round", j)
+                    debug_logger.info(f"log_id: {log_id}, Decision made: not novel after round", j)
                     break
 
                 ## PARSE OUTPUT
@@ -574,34 +574,34 @@ def check_idea_novelty(
                 papers = search_for_papers(query, result_limit=10)
                 if papers is None:
                     papers_str = "No papers found."
-
-                paper_strings = []
-                for i, paper in enumerate(papers):
-                    paper_strings.append(
-                        # """{i}: {title}. {authors}. {venue}, {year}.\nNumber of citations: {cites}\nAbstract: {abstract}""".format(
-                        """{i}: \nTitle: {title}\nAuthors: {authors}\nVenue: {venue}\nYear: {year}.\nNumber of citations: {cites}\nAbstract: {abstract}""".format(
-                            i=i,
-                            title=paper["title"],
-                            authors=paper["authors"],
-                            # venue=paper["venue"],
-                            venue=paper.get("venue", "Unknown"),
-                            # year=paper["year"],
-                            year=paper.get("year", "Unknown"),
-                            # cites=paper["citationCount"],
-                            cites=paper.get("citationCount", "Unknown"),
-                            # abstract=paper["abstract"],
-                            abstract=paper.get("abstract", "Unknown"),
+                else:
+                    paper_strings = []
+                    for i, paper in enumerate(papers):
+                        paper_strings.append(
+                            # """{i}: {title}. {authors}. {venue}, {year}.\nNumber of citations: {cites}\nAbstract: {abstract}""".format(
+                            """{i}: \nTitle: {title}\nAuthors: {authors}\nVenue: {venue}\nYear: {year}.\nNumber of citations: {cites}\nAbstract: {abstract}""".format(
+                                i=i,
+                                title=paper["title"],
+                                authors=paper["authors"],
+                                # venue=paper["venue"],
+                                venue=paper.get("venue", "Unknown"),
+                                # year=paper["year"],
+                                year=paper.get("year", "Unknown"),
+                                # cites=paper["citationCount"],
+                                cites=paper.get("citationCount", "Unknown"),
+                                # abstract=paper["abstract"],
+                                abstract=paper.get("abstract", "Unknown"),
+                            )
                         )
-                    )
-                papers_str = "\n\n".join(paper_strings)
-                print(f'now papers_str: {papers_str}')
+                    papers_str = "\n\n".join(paper_strings)
+                debug_logger.info(f'log_id: {log_id}, now papers_str: {papers_str}')
             except Exception as e:
                 traceback.print_exc()
-                print(f"line 480 Error: {e}")
+                debug_logger.info(f"log_id: {log_id}, line 480 Error: {e}")
                 continue
 
         idea["novel"] = novel
-        print(f'idea {idx}, novel: {novel}')
+        debug_logger.info(f'log_id: {log_id}, idea {idx}, novel: {novel}')
 
     # Save results to JSON file
     results_file = osp.join(base_dir, "ideas.json")

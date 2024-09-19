@@ -5,8 +5,14 @@ import subprocess
 import sys
 from subprocess import TimeoutExpired
 
-MAX_ITERS = 4
-MAX_RUNS = 5
+from ai_scientist.logger import debug_logger
+
+# MAX_ITERS = 4
+MAX_ITERS = 2  # 为了测试，减少实验次数
+
+# MAX_RUNS = 5
+MAX_RUNS = 2  # 为了测试，减少实验次数
+
 MAX_STDERR_OUTPUT = 1500
 
 coder_prompt = """Your goal is to implement the following idea: {title}.
@@ -47,13 +53,13 @@ def run_experiment(folder_name, run_num, timeout=7200):
         )
 
         if result.stderr:
-            print(result.stderr, file=sys.stderr)
+            debug_logger.info(result.stderr, file=sys.stderr)
 
         if result.returncode != 0:
-            print(f"Run {run_num} failed with return code {result.returncode}")
+            debug_logger.info(f"Run {run_num} failed with return code {result.returncode}")
             if osp.exists(osp.join(cwd, f"run_{run_num}")):
                 shutil.rmtree(osp.join(cwd, f"run_{run_num}"))
-            print(f"Run failed with the following error {result.stderr}")
+            debug_logger.info(f"Run failed with the following error {result.stderr}")
             stderr_output = result.stderr
             if len(stderr_output) > MAX_STDERR_OUTPUT:
                 stderr_output = "..." + stderr_output[-MAX_STDERR_OUTPUT:]
@@ -77,7 +83,7 @@ YOUR PROPOSED CHANGE MUST USE THIS COMMAND FORMAT, DO NOT ADD ADDITIONAL COMMAND
 If you are finished with experiments, respond with 'ALL_COMPLETED'."""
         return result.returncode, next_prompt
     except TimeoutExpired:
-        print(f"Run {run_num} timed out after {timeout} seconds")
+        debug_logger.info(f"Run {run_num} timed out after {timeout} seconds")
         if osp.exists(osp.join(cwd, f"run_{run_num}")):
             shutil.rmtree(osp.join(cwd, f"run_{run_num}"))
         next_prompt = f"Run timed out after {timeout} seconds"
@@ -98,16 +104,16 @@ def run_plotting(folder_name, timeout=600):
         )
 
         if result.stderr:
-            print(result.stderr, file=sys.stderr)
+            debug_logger.info(result.stderr, file=sys.stderr)
 
         if result.returncode != 0:
-            print(f"Plotting failed with return code {result.returncode}")
+            debug_logger.info(f"Plotting failed with return code {result.returncode}")
             next_prompt = f"Plotting failed with the following error {result.stderr}"
         else:
             next_prompt = ""
         return result.returncode, next_prompt
     except TimeoutExpired:
-        print(f"Plotting timed out after {timeout} seconds")
+        debug_logger.info(f"Plotting timed out after {timeout} seconds")
         next_prompt = f"Plotting timed out after {timeout} seconds"
         return 1, next_prompt
 
@@ -125,10 +131,10 @@ def perform_experiments(idea, folder_name, coder, baseline_results) -> bool:
     )
     while run < MAX_RUNS + 1:
         if current_iter >= MAX_ITERS:  # 退出条件1：超过最大迭代次数
-            print("Max iterations reached")
+            debug_logger.info("Max iterations reached")
             break
         coder_out = coder.run(next_prompt)
-        print(f'in perform_experiments, run: {run}, coder_out: {coder_out}')
+        debug_logger.info(f'in perform_experiments, run: {run}, coder_out: {coder_out}')
         # print(coder_out)
         if "ALL_COMPLETED" in coder_out:  # 退出条件2：所有实验完成
             break
@@ -139,13 +145,13 @@ def perform_experiments(idea, folder_name, coder, baseline_results) -> bool:
         current_iter += 1
 
     if current_iter >= MAX_ITERS:  # 不是所有实验都完成，直接返回False
-        print("Not all experiments completed.")
+        debug_logger.info("Not all experiments completed.")
         return False
 
     current_iter = 0
 
     # 画图
-    print(f'now will modify plot.py and run_plotting')
+    debug_logger.info(f'now will modify plot.py and run_plotting')
     next_prompt = """
 Great job! Please modify `plot.py` to generate the most relevant plots for the final writeup. 
 
@@ -163,7 +169,7 @@ We will be running the command `python plot.py` to generate the plots.
             break
 
     # 修改notes.txt
-    print(f'now will modify notes.txt')
+    debug_logger.info(f'now will modify notes.txt')
     next_prompt = """
 Please modify `notes.txt` with a description of what each plot shows along with the filename of the figure. Please do so in-depth.
 

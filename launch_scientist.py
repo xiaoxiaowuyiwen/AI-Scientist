@@ -1,9 +1,11 @@
 import argparse
 import json
+import multiprocessing
 import os
 import os.path as osp
 import shutil
 import sys
+import time
 import uuid
 from datetime import datetime
 
@@ -12,7 +14,7 @@ from aider.coders import Coder
 from aider.io import InputOutput
 from aider.models import Model
 
-from ai_scientist.generate_ideas import generate_ideas
+from ai_scientist.generate_ideas import generate_ideas, check_idea_novelty
 from ai_scientist.logger import debug_logger
 from ai_scientist.perform_experiments import perform_experiments
 from ai_scientist.perform_review import perform_review, load_paper, perform_improvement
@@ -153,7 +155,7 @@ def do_idea(
 
     idea_name = f"{timestamp}_{idea['Name']}"
     folder_name = osp.join(results_dir, idea_name)
-    print(f'do_idea, idea_name: {idea_name}, folder_name: {folder_name}')
+    debug_logger.info(f'do_idea, idea_name: {idea_name}, folder_name: {folder_name}')
     assert not osp.exists(folder_name), f"Folder {folder_name} already exists."
     destination_dir = folder_name
     shutil.copytree(base_dir, destination_dir, dirs_exist_ok=True)
@@ -161,12 +163,12 @@ def do_idea(
     with open(osp.join(base_dir, "run_0", "final_info.json"), "r") as f:
         baseline_results = json.load(f)
     baseline_results = {k: v["means"] for k, v in baseline_results.items()}
-    print(f'do_idea, idea_name: {idea_name}, baseline_results: {baseline_results}')
+    debug_logger.info(f'do_idea, idea_name: {idea_name}, baseline_results: {baseline_results}')
 
     exp_file = osp.join(folder_name, "experiment.py")
     vis_file = osp.join(folder_name, "plot.py")
     notes = osp.join(folder_name, "notes.txt")
-    print(f'do_idea, idea_name: {idea_name}, exp_file: {exp_file}, vis_file: {vis_file}, notes: {notes}')
+    debug_logger.info(f'do_idea, idea_name: {idea_name}, exp_file: {exp_file}, vis_file: {vis_file}, notes: {notes}')
 
     # 向notes.txt中写入实验的标题和描述
     with open(notes, "w") as f:
@@ -186,7 +188,7 @@ def do_idea(
 
     try:
         print_time()
-        print(f"*Starting idea: {idea_name}*")
+        debug_logger.info(f"*Starting idea: {idea_name}*")
 
         ## 1. PERFORM EXPERIMENTS
         fnames = [exp_file, vis_file, notes]  # 分别是experiment.py, plot.py, notes.txt
@@ -208,20 +210,20 @@ def do_idea(
             edit_format="diff",
         )
         print_time()
-        print(f"*Starting Experiments*")
+        debug_logger.info(f"*Starting Experiments*")
         try:
             success = perform_experiments(idea, folder_name, coder, baseline_results)
         except Exception as e:
-            print(f"Error during experiments: {e}")
-            print(f"Experiments failed for idea {idea_name}")
+            debug_logger.info(f"Error during experiments: {e}")
+            debug_logger.info(f"Experiments failed for idea {idea_name}")
             return False
 
         if not success:
-            print(f"Experiments failed for idea {idea_name}")
+            debug_logger.info(f"Experiments failed for idea {idea_name}")
             return False
 
         print_time()
-        print(f"*Starting Writeup*")
+        debug_logger.info(f"*Starting Writeup*")
         ## 2. PERFORM WRITEUP
         if writeup == "latex":
             writeup_file = osp.join(folder_name, "latex", "template.tex")
@@ -243,14 +245,14 @@ def do_idea(
             try:
                 perform_writeup(idea, folder_name, coder, client, client_model)
             except Exception as e:
-                print(f"Failed to perform writeup: {e}")
+                debug_logger.info(f"Failed to perform writeup: {e}")
                 return False
-            print("Done writeup")
+            debug_logger.info("Done writeup")
         else:
             raise ValueError(f"Writeup format {writeup} not supported.")
 
         print_time()
-        print(f"*Starting Review*")
+        debug_logger.info(f"*Starting Review*")
         ## 3. REVIEW PAPER
         if writeup == "latex":
             try:
@@ -272,13 +274,13 @@ def do_idea(
                 with open(osp.join(folder_name, "review.txt"), "w") as f:
                     f.write(json.dumps(review, indent=4))
             except Exception as e:
-                print(f"Failed to perform review: {e}")
+                debug_logger.info(f"Failed to perform review: {e}")
                 return False
 
         ## 4. IMPROVE WRITEUP
         if writeup == "latex" and improvement:
             print_time()
-            print(f"*Starting Improvement*")
+            debug_logger.info(f"*Starting Improvement*")
             try:
                 perform_improvement(review, coder)
                 generate_latex(
@@ -299,14 +301,14 @@ def do_idea(
                 with open(osp.join(folder_name, "review_improved.txt"), "w") as f:
                     f.write(json.dumps(review))
             except Exception as e:
-                print(f"Failed to perform improvement: {e}")
+                debug_logger.info(f"Failed to perform improvement: {e}")
                 return False
         return True
     except Exception as e:
-        print(f"Failed to evaluate idea {idea_name}: {str(e)}")
+        debug_logger.info(f"Failed to evaluate idea {idea_name}: {str(e)}")
         return False
     finally:
-        print("FINISHED IDEA")
+        debug_logger.info("FINISHED IDEA")
         if log_file:
             sys.stdout = original_stdout
             sys.stderr = original_stderr
@@ -400,7 +402,6 @@ if __name__ == "__main__":
         log_id=log_id,
     )
     debug_logger.info(f'log_id: {log_id}, finished generating ideas, ideas: {ideas}')
-    sys.exit(0)
 
     debug_logger.info(f'log_id: {log_id}, will start checking idea novelty')
     ideas = check_idea_novelty(
@@ -409,11 +410,13 @@ if __name__ == "__main__":
         client=client,
         model=client_model,
         max_num_iterations=3,  # 为了节省时间，这里暂时设置为3
+        log_id=log_id,
     )
-    print(f'now finished checking idea novelty, ideas: {ideas}')
 
     with open(osp.join(base_dir, "ideas.json"), "w") as f:
         json.dump(ideas, f, indent=4)
+
+    debug_logger.info(f'log_id: {log_id}, now finished checking idea novelty, ideas: {ideas}')
 
     novel_ideas = [idea for idea in ideas if idea["novel"]]
     # novel_ideas = list(reversed(novel_ideas))
