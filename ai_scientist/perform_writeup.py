@@ -10,7 +10,9 @@ from ai_scientist.generate_ideas import search_for_papers
 from ai_scientist.llm import get_response_from_llm, extract_json_between_markers
 from ai_scientist.logger import debug_logger
 
+# 定义论文的各个部分的写作提示
 per_section_tips = {
+    # Abstract部分的写作提示
     "Abstract": """
 - TL;DR of the paper
 - What are we trying to do and why is it relevant?
@@ -20,6 +22,7 @@ per_section_tips = {
 
 Please make sure the abstract reads smoothly and is well-motivated. This should be one continuous paragraph with no breaks between the lines.
 """,
+    # Introduction部分的写作提示
     "Introduction": """
 - Longer version of the Abstract, i.e. of the entire paper
 - What are we trying to do and why is it relevant?
@@ -29,16 +32,19 @@ Please make sure the abstract reads smoothly and is well-motivated. This should 
 - New trend: specifically list your contributions as bullet points
 - Extra space? Future work!
 """,
+    # Related Work部分的写作提示
     "Related Work": """
 - Academic siblings of our work, i.e. alternative attempts in literature at trying to solve the same problem. 
 - Goal is to “Compare and contrast” - how does their approach differ in either assumptions or method? If their method is applicable to our Problem Setting I expect a comparison in the experimental section. If not, there needs to be a clear statement why a given method is not applicable. 
 - Note: Just describing what another paper is doing is not enough. We need to compare and contrast.
 """,
+    # Background部分的写作提示
     "Background": """
 - Academic Ancestors of our work, i.e. all concepts and prior work that are required for understanding our method. 
 - Usually includes a subsection, Problem Setting, which formally introduces the problem setting and notation (Formalism) for our method. Highlights any specific assumptions that are made that are unusual. 
 - Note: If our paper introduces a novel problem setting as part of its contributions, it's best to have a separate Section.
 """,
+    # Method部分的写作提示
     "Method": """
 - What we do. Why we do it. All described using the general Formalism introduced in the Problem Setting and building on top of the concepts / foundations introduced in Background.
 """,
@@ -47,6 +53,7 @@ Please make sure the abstract reads smoothly and is well-motivated. This should 
 - Do not imagine unknown hardware details.
 - Includes a description of the dataset, evaluation metrics, important hyperparameters, and implementation details.
 """,
+    # Results部分的写作提示
     "Results": """
 - Shows the results of running Method on our problem described in Experimental Setup.
 - Includes statements on hyperparameters and other potential issues of fairness.
@@ -56,6 +63,7 @@ Please make sure the abstract reads smoothly and is well-motivated. This should 
 - Discusses limitations of the method.
 - Make sure to include all the results from the experiments, and include all relevant figures.
 """,
+    # Conclusion部分的写作提示
     "Conclusion": """
 - Brief recap of the entire paper.
 - To keep going with the analogy, you can think of future work as (potential) academic offspring.
@@ -77,6 +85,7 @@ error_list = """- Unenclosed math symbols
 - Incorrect closing of environments, e.g. </end{{figure}}> instead of \\end{{figure}}
 """
 
+# 针对可能出现的错误，进行修正，error_list中包含了一些可能出现的错误，比如Unenclosed math symbols，LaTeX syntax errors等
 refinement_prompt = (
         """Great job! Now criticize and refine only the {section} that you just wrote.
     Make this complete in this pass, do not leave any placeholders.
@@ -183,6 +192,7 @@ def generate_latex(coder, folder_name, pdf_file, timeout=30, num_error_correctio
     writeup_file = osp.join(cwd, "template.tex")
 
     # Check all references are valid and in the references.bib file
+    # 确认所有引用都是有效的，并且在references.bib文件中
     with open(writeup_file, "r") as f:
         tex_text = f.read()
     cites = re.findall(r"\\cite[a-z]*{([^}]*)}", tex_text)
@@ -192,7 +202,7 @@ def generate_latex(coder, folder_name, pdf_file, timeout=30, num_error_correctio
         re.DOTALL,
     )
     if references_bib is None:
-        debug_logger.info("No references.bib found in template.tex")
+        debug_logger.error("No references.bib found in template.tex")
         return
     bib_text = references_bib.group(1)
     cites = [cite.strip() for item in cites for cite in item.split(",")]
@@ -204,6 +214,7 @@ If so, please modify the citation in template.tex to match the name in reference
             coder.run(prompt)
 
     # Check all included figures are actually in the directory.
+    # 确认所有包含的图片都在目录中
     with open(writeup_file, "r") as f:
         tex_text = f.read()
     referenced_figs = re.findall(r"\\includegraphics.*?{(.*?)}", tex_text)
@@ -216,6 +227,7 @@ Please ensure that the figure is in the directory and that the filename is corre
             coder.run(prompt)
 
     # Remove duplicate figures.
+    # 删除重复的图片
     with open(writeup_file, "r") as f:
         tex_text = f.read()
     referenced_figs = re.findall(r"\\includegraphics.*?{(.*?)}", tex_text)
@@ -228,6 +240,7 @@ If duplicated, identify the best location for the figure and remove any other.""
             coder.run(prompt)
 
     # Remove duplicate section headers.
+    # 删除重复的section header
     with open(writeup_file, "r") as f:
         tex_text = f.read()
     sections = re.findall(r"\\section{([^}]*)}", tex_text)
@@ -240,6 +253,7 @@ If duplicated, identify the best location for the section header and remove any 
             coder.run(prompt)
 
     # Iteratively fix any LaTeX bugs
+    # 迭代修复任何LaTeX错误
     for i in range(num_error_corrections):
         # Filter trivial bugs in chktex
         check_output = os.popen(f"chktex {writeup_file} -q -n2 -n24 -n13 -n1").read()
@@ -253,6 +267,8 @@ Pay attention to any accidental uses of HTML syntax, e.g. </end instead of \\end
             coder.run(prompt)
         else:
             break
+
+    # 编译LaTeX
     compile_latex(cwd, pdf_file, timeout=timeout)
 
 
@@ -298,29 +314,27 @@ def get_citation_aider_prompt(
     msg_history = []
     try:
         text, msg_history = get_response_from_llm(
-            citation_first_prompt.format(
-                draft=draft, current_round=current_round, total_rounds=total_rounds
-            ),
+            citation_first_prompt.format(draft=draft, current_round=current_round, total_rounds=total_rounds),
             client=client,
             model=model,
             system_message=citation_system_msg.format(total_rounds=total_rounds),
             msg_history=msg_history,
         )
         if "No more citations needed" in text:
-            print("No more citations needed.")
+            debug_logger.info("No more citations needed.")
             return None, True
 
         ## PARSE OUTPUT
         json_output = extract_json_between_markers(text)
         assert json_output is not None, "Failed to extract JSON from LLM output"
         query = json_output["Query"]
-        papers = search_for_papers(query)
+        papers = search_for_papers(query)  # 搜索相关的论文
     except Exception as e:
-        print(f"Error: {e}")
+        debug_logger.error(f"get_citation_aider_prompt error: {e}")
         return None, False
 
     if papers is None:
-        print("No papers found.")
+        debug_logger.info("No papers found.")
         return None, False
 
     paper_strings = []
@@ -328,10 +342,10 @@ def get_citation_aider_prompt(
         paper_strings.append(
             """{i}: {title}. {authors}. {venue}, {year}.\nAbstract: {abstract}""".format(
                 i=i,
-                title=paper["title"],
-                authors=paper["authors"],
-                venue=paper["venue"],
-                year=paper["year"],
+                title=paper.get("title", "Unknown"),
+                authors=paper.get("authors", "Unknown"),
+                venue=paper.get("venue", "Unknown"),
+                year=paper.get("year", "Unknown"),
                 abstract=paper["abstract"],
             )
         )
@@ -350,7 +364,7 @@ def get_citation_aider_prompt(
             msg_history=msg_history,
         )
         if "Do not add any" in text:
-            print("Do not add any.")
+            debug_logger.info("Do not add any.")
             return None, False
         ## PARSE OUTPUT
         json_output = extract_json_between_markers(text)
@@ -371,7 +385,7 @@ def get_citation_aider_prompt(
             return None, False
 
     except Exception as e:
-        print(f"Error: {e}")
+        debug_logger.error(f"Error: {e}")
         return None, False
 
     # Add citation to draft
@@ -400,6 +414,8 @@ Ensure the citation is well-integrated into the text.'''
 # def perform_writeup(idea, folder_name, coder, cite_client, cite_model, num_cite_rounds=20):
 def perform_writeup(idea, folder_name, coder, cite_client, cite_model, num_cite_rounds=5):
     # CURRENTLY ASSUMES LATEX
+
+    # 先要求填写标题和摘要，即Title和Abstract
     abstract_prompt = f"""We've provided the `latex/template.tex` file to the project. We will be filling it in section by section.
 
 First, please fill in the "Title" and "Abstract" sections of the writeup.
@@ -412,11 +428,15 @@ Before every paragraph, please include a brief description of what you plan to w
 Be sure to first name the file and use *SEARCH/REPLACE* blocks to perform these edits.
 """
     coder_out = coder.run(abstract_prompt)
+
+    # 修正可能出现的错误，比如Unenclosed math symbols，LaTeX syntax errors等，这些错误是预定义的
     coder_out = coder.run(
         refinement_prompt.format(section="Abstract")
         .replace(r"{{", "{")
         .replace(r"}}", "}")
     )
+
+    # 再依次填写Introduction, Background, Method, Experimental Setup, Results, Conclusion部分
     for section in [
         "Introduction",
         "Background",
@@ -438,7 +458,10 @@ Before every paragraph, please include a brief description of what you plan to w
 
 Be sure to first name the file and use *SEARCH/REPLACE* blocks to perform these edits.
 """
+        # 先生成对应的section的内容
         coder_out = coder.run(section_prompt)
+
+        # 和Title和Abstract一样，修正可能出现的错误
         coder_out = coder.run(
             refinement_prompt.format(section=section)
             .replace(r"{{", "{")
@@ -446,6 +469,7 @@ Be sure to first name the file and use *SEARCH/REPLACE* blocks to perform these 
         )
 
     # SKETCH THE RELATED WORK
+    # 填写Related Work部分
     section_prompt = f"""Please fill in the Related Work of the writeup. Some tips are provided below:
 
 {per_section_tips["Related Work"]}
@@ -478,6 +502,7 @@ Be sure to first name the file and use *SEARCH/REPLACE* blocks to perform these 
                 f.write(draft)
             coder_out = coder.run(prompt)
 
+    # 对于Related Work部分，也进行错误修正
     coder_out = coder.run(
         refinement_prompt.format(section="Related Work")
         .replace(r"{{", "{")
@@ -485,10 +510,13 @@ Be sure to first name the file and use *SEARCH/REPLACE* blocks to perform these 
     )
 
     ## SECOND REFINEMENT LOOP
+    # 先对Title进行第二次修正
     coder.run(
         """Great job! Now that there is a complete draft of the entire paper, let's refine each section again.
 First, re-think the Title if necessary. Keep this concise and descriptive of the paper's concept, but try by creative with it."""
     )
+
+    # 再对除了Title之外的部分进行第二次修正
     for section in [
         "Abstract",
         "Related Work",
@@ -507,6 +535,7 @@ First, re-think the Title if necessary. Keep this concise and descriptive of the
             .replace(r"}}", "}")
         )
 
+    # 最终生成LaTeX文件
     generate_latex(coder, folder_name, f"{folder_name}/{idea['Name']}.pdf")
 
 

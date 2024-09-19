@@ -33,6 +33,7 @@ You can then implement the next thing on your list."""
 
 
 # RUN EXPERIMENT
+# 注意这里的experiment.py是在folder_name文件夹下的experiment.py，是动态生成的
 def run_experiment(folder_name, run_num, timeout=7200):
     cwd = osp.abspath(folder_name)
     # COPY CODE SO WE CAN SEE IT.
@@ -69,6 +70,7 @@ def run_experiment(folder_name, run_num, timeout=7200):
                 results = json.load(f)
             results = {k: v["means"] for k, v in results.items()}
 
+            # 这个prompt指定了python experiment.py --out_dir=run_{run_num}，也就是在跑的过程中看到的终端输出
             next_prompt = f"""Run {run_num} completed. Here are the results:
 {results}
 

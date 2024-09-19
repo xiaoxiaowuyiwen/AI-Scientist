@@ -154,7 +154,7 @@ def do_idea(
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     idea_name = f"{timestamp}_{idea['Name']}"
-    folder_name = osp.join(results_dir, idea_name)
+    folder_name = osp.join(results_dir, idea_name)  # 注意了，这个目录是在results目录下的！！！
     debug_logger.info(f'do_idea, idea_name: {idea_name}, folder_name: {folder_name}')
     assert not osp.exists(folder_name), f"Folder {folder_name} already exists."
     destination_dir = folder_name
@@ -274,7 +274,7 @@ def do_idea(
                 with open(osp.join(folder_name, "review.txt"), "w") as f:
                     f.write(json.dumps(review, indent=4))
             except Exception as e:
-                debug_logger.info(f"Failed to perform review: {e}")
+                debug_logger.error(f"Failed to perform review: {e}")
                 return False
 
         ## 4. IMPROVE WRITEUP
@@ -301,11 +301,11 @@ def do_idea(
                 with open(osp.join(folder_name, "review_improved.txt"), "w") as f:
                     f.write(json.dumps(review))
             except Exception as e:
-                debug_logger.info(f"Failed to perform improvement: {e}")
+                debug_logger.error(f"Failed to perform improvement: {e}")
                 return False
         return True
     except Exception as e:
-        debug_logger.info(f"Failed to evaluate idea {idea_name}: {str(e)}")
+        debug_logger.error(f"Failed to evaluate idea {idea_name}: {str(e)}")
         return False
     finally:
         debug_logger.info("FINISHED IDEA")

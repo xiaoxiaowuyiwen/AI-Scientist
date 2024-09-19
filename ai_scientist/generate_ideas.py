@@ -581,8 +581,8 @@ def check_idea_novelty(
                             # """{i}: {title}. {authors}. {venue}, {year}.\nNumber of citations: {cites}\nAbstract: {abstract}""".format(
                             """{i}: \nTitle: {title}\nAuthors: {authors}\nVenue: {venue}\nYear: {year}.\nNumber of citations: {cites}\nAbstract: {abstract}""".format(
                                 i=i,
-                                title=paper["title"],
-                                authors=paper["authors"],
+                                title=paper.get("title", "Unknown"),
+                                authors=paper.get("authors", "Unknown"),
                                 # venue=paper["venue"],
                                 venue=paper.get("venue", "Unknown"),
                                 # year=paper["year"],
