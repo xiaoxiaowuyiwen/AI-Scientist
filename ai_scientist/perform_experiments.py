@@ -53,7 +53,7 @@ def run_experiment(folder_name, run_num, timeout=7200):
         )
 
         if result.stderr:
-            debug_logger.info(result.stderr, file=sys.stderr)
+            print(result.stderr, file=sys.stderr)
 
         if result.returncode != 0:
             debug_logger.info(f"Run {run_num} failed with return code {result.returncode}")
@@ -104,7 +104,7 @@ def run_plotting(folder_name, timeout=600):
         )
 
         if result.stderr:
-            debug_logger.info(result.stderr, file=sys.stderr)
+            print(result.stderr, file=sys.stderr)
 
         if result.returncode != 0:
             debug_logger.info(f"Plotting failed with return code {result.returncode}")

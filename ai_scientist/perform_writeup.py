@@ -276,8 +276,8 @@ def compile_latex(cwd, pdf_file, timeout=30):
                 text=True,
                 timeout=timeout,
             )
-            debug_logger.info("Standard Output:\n", result.stdout)
-            debug_logger.info("Standard Error:\n", result.stderr)
+            print("Standard Output:\n", result.stdout)
+            print("Standard Error:\n", result.stderr)
         except subprocess.TimeoutExpired:
             debug_logger.info(f"Latex timed out after {timeout} seconds")
         except subprocess.CalledProcessError as e:
