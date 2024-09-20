@@ -209,17 +209,17 @@ def do_idea(
             use_git=False,
             edit_format="diff",
         )
+
         print_time()
         debug_logger.info(f"*Starting Experiments*")
         try:
             success = perform_experiments(idea, folder_name, coder, baseline_results)
         except Exception as e:
-            debug_logger.info(f"Error during experiments: {e}")
-            debug_logger.info(f"Experiments failed for idea {idea_name}")
+            debug_logger.error(f"perform_experiments failed for idea {idea_name}, error: {e}")
             return False
 
         if not success:
-            debug_logger.info(f"Experiments failed for idea {idea_name}")
+            debug_logger.error(f"perform_experiments failed for idea {idea_name}")
             return False
 
         print_time()

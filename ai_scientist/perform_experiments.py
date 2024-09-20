@@ -7,8 +7,8 @@ from subprocess import TimeoutExpired
 
 from ai_scientist.logger import debug_logger
 
-# MAX_ITERS = 4
-MAX_ITERS = 2  # 为了测试，减少实验次数
+MAX_ITERS = 4
+# MAX_ITERS = 2  # 为了测试，减少实验次数
 
 # MAX_RUNS = 5
 MAX_RUNS = 2  # 为了测试，减少实验次数
@@ -34,7 +34,15 @@ You can then implement the next thing on your list."""
 
 # RUN EXPERIMENT
 # 注意这里的experiment.py是在folder_name文件夹下的experiment.py，是动态生成的
-def run_experiment(folder_name, run_num, timeout=7200):
+def run_experiment(folder_name, run_num, timeout=7200) -> (int, str):
+    """
+    执行实验
+
+    :param folder_name: 目录名
+    :param run_num: 实验编号
+    :param timeout: 实验执行超时时间
+    :return: 状态码和下一个prompt
+    """
     cwd = osp.abspath(folder_name)
     # COPY CODE SO WE CAN SEE IT.
     shutil.copy(
@@ -54,18 +62,19 @@ def run_experiment(folder_name, run_num, timeout=7200):
         )
 
         if result.stderr:
-            print(result.stderr, file=sys.stderr)
+            debug_logger.error(f'run_experiment, result.stderr: {result.stderr}')
+            # print(result.stderr, file=sys.stderr)
 
-        if result.returncode != 0:
+        if result.returncode != 0:  # 如果返回值不为0，说明实验执行失败
             debug_logger.info(f"Run {run_num} failed with return code {result.returncode}")
             if osp.exists(osp.join(cwd, f"run_{run_num}")):
-                shutil.rmtree(osp.join(cwd, f"run_{run_num}"))
-            debug_logger.info(f"Run failed with the following error {result.stderr}")
+                shutil.rmtree(osp.join(cwd, f"run_{run_num}"))  # 删除实验结果，避免影响下次实验？
+            debug_logger.error(f"Run failed with the following error {result.stderr}")
             stderr_output = result.stderr
-            if len(stderr_output) > MAX_STDERR_OUTPUT:
+            if len(stderr_output) > MAX_STDERR_OUTPUT:  # 如果stderr输出太长，只保留后面的部分
                 stderr_output = "..." + stderr_output[-MAX_STDERR_OUTPUT:]
-            next_prompt = f"Run failed with the following error {stderr_output}"
-        else:
+            next_prompt = f"Run failed with the following error {stderr_output}"  # 将错误信息返回给coder
+        else:  # 如果返回值为0，说明实验执行成功
             with open(osp.join(cwd, f"run_{run_num}", "final_info.json"), "r") as f:
                 results = json.load(f)
             results = {k: v["means"] for k, v in results.items()}
@@ -84,8 +93,8 @@ We will then run the command `python experiment.py --out_dir=run_{run_num + 1}'.
 YOUR PROPOSED CHANGE MUST USE THIS COMMAND FORMAT, DO NOT ADD ADDITIONAL COMMAND LINE ARGS.
 If you are finished with experiments, respond with 'ALL_COMPLETED'."""
         return result.returncode, next_prompt
-    except TimeoutExpired:
-        debug_logger.info(f"Run {run_num} timed out after {timeout} seconds")
+    except TimeoutExpired:  # 如果实验超时
+        debug_logger.error(f"Run {run_num} timed out after {timeout} seconds")
         if osp.exists(osp.join(cwd, f"run_{run_num}")):
             shutil.rmtree(osp.join(cwd, f"run_{run_num}"))
         next_prompt = f"Run timed out after {timeout} seconds"
@@ -107,6 +116,7 @@ def run_plotting(folder_name, timeout=600):
 
         if result.stderr:
             print(result.stderr, file=sys.stderr)
+            debug_logger.error(f'run_plotting, result.stderr: {result.stderr}')
 
         if result.returncode != 0:
             debug_logger.info(f"Plotting failed with return code {result.returncode}")
@@ -115,7 +125,7 @@ def run_plotting(folder_name, timeout=600):
             next_prompt = ""
         return result.returncode, next_prompt
     except TimeoutExpired:
-        debug_logger.info(f"Plotting timed out after {timeout} seconds")
+        debug_logger.error(f"Plotting timed out after {timeout} seconds")
         next_prompt = f"Plotting timed out after {timeout} seconds"
         return 1, next_prompt
 
@@ -132,16 +142,24 @@ def perform_experiments(idea, folder_name, coder, baseline_results) -> bool:
         baseline_results=baseline_results,
     )
     while run < MAX_RUNS + 1:
-        if current_iter >= MAX_ITERS:  # 退出条件1：超过最大迭代次数
+        # 这里实际上蕴含了2层循环，外层循环是run < MAX_RUNS + 1，内层循环是current_iter < MAX_ITERS
+        # 如果当前实验失败，run是不会增加的，会继续尝试当前实验，直到成功或者
+
+        if current_iter >= MAX_ITERS:  # 退出条件1：某次实验超过最大迭代次数
             debug_logger.info("Max iterations reached")
             break
+
+        debug_logger.info(f'in perform_experiments, run: {run}, next_prompt: {next_prompt}')
         coder_out = coder.run(next_prompt)
         debug_logger.info(f'in perform_experiments, run: {run}, coder_out: {coder_out}')
         # print(coder_out)
         if "ALL_COMPLETED" in coder_out:  # 退出条件2：所有实验完成
             break
+        # experiment.py是在什么时候生成的？
         return_code, next_prompt = run_experiment(folder_name, run)
-        if return_code == 0:
+        debug_logger.info(
+            f'in perform_experiments, after run_experiment, run: {run}, return_code: {return_code}, next_prompt: {next_prompt}')
+        if return_code == 0:  # 当前实验完成，准备进行下一个实验
             run += 1
             current_iter = 0
         current_iter += 1
@@ -164,11 +182,15 @@ Only the runs in the `labels` dictionary will be plotted, so make sure to includ
 We will be running the command `python plot.py` to generate the plots.
 """
     while True:
-        coder_out = coder.run(next_prompt)
-        return_code, next_prompt = run_plotting(folder_name)
+        coder_out = coder.run(next_prompt)  # 修改plot.py
+
+        return_code, next_prompt = run_plotting(folder_name)  # 画图
         current_iter += 1
-        if return_code == 0 or current_iter >= MAX_ITERS:
+        if return_code == 0:
             break
+        if current_iter >= MAX_ITERS:
+            debug_logger.error("Max iterations reached for plotting")
+            break  # 原始代码这里也是break，为什么不直接返回False？
 
     # 修改notes.txt
     debug_logger.info(f'now will modify notes.txt')
