@@ -353,13 +353,13 @@ if __name__ == "__main__":
     elif args.model == "gpt-4o-2024-05-13":
         import openai
 
-        api_key = os.getenv('OPENAI_API_KEY_AISCIENTIST')
+        api_key = os.getenv('OPENAI_API_KEY_MTU')
         if api_key is None:
-            raise ValueError("OPENAI_API_KEY_AISCIENTIST environment variable not set.")
+            raise ValueError("OPENAI_API_KEY_MTU environment variable not set.")
 
-        base_url = os.getenv('OPENAI_API_BASE_URL_AISCIENTIST')
+        base_url = os.getenv('OPENAI_API_BASE_URL_MTU')
         if base_url is None:
-            raise ValueError("OPENAI_API_BASE_URL_AISCIENTIST environment variable not set.")
+            raise ValueError("OPENAI_API_BASE_URL_MTU environment variable not set.")
 
         client_model = "gpt-4o-2024-05-13"
         client = openai.OpenAI(api_key=api_key, base_url=base_url)
