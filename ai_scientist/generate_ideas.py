@@ -558,11 +558,11 @@ def check_idea_novelty(
                     msg_history=msg_history,
                 )
                 if "decision made: novel" in text.lower():
-                    debug_logger.info(f"log_id: {log_id}, Decision made: novel after round", j)
+                    debug_logger.info(f"log_id: {log_id}, Decision made: novel after round {j}")
                     novel = True
                     break
                 if "decision made: not novel" in text.lower():
-                    debug_logger.info(f"log_id: {log_id}, Decision made: not novel after round", j)
+                    debug_logger.info(f"log_id: {log_id}, Decision made: not novel after round {j}")
                     break
 
                 ## PARSE OUTPUT
